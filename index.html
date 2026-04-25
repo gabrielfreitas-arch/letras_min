@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minutos Literários - UNEMAT</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics-compat.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --roxo-primary: #4b0082;
+            --roxo-vinheta: rgba(75, 0, 130, 0.7);
+            --amarelo: #ffcc00;
+            --verde-agua: #20b2aa;
+            --vermelho: #ff4d4d;
+            --branco: #ffffff;
+            --bg-polaroid: #f9f9f9;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+
+        body { background-color: #eee; color: #333; overflow-x: hidden; }
+
+        /* Utilitários */
+        .hidden { display: none !important; }
+        .btn { 
+            padding: 12px 25px; border: none; border-radius: 8px; 
+            cursor: pointer; font-weight: 600; transition: 0.3s;
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+
+        /* PÁGINA INICIAL */
+        #pg-inicial {
+            height: 100vh;
+            background: linear-gradient(var(--roxo-vinheta), var(--roxo-vinheta)), url('capa.png');
+            background-size: cover; background-position: center;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            color: white; text-align: center; padding: 20px;
+        }
+
+        .login-card {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            padding: 40px; border-radius: 20px;
+            width: 100%; max-width: 400px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        input[type="text"], input[type="password"], input[type="email"] {
+            width: 100%; padding: 15px; margin: 10px 0;
+            border-radius: 8px; border: none; outline: none;
+        }
+
+        .btn-avancar { background: var(--amarelo); color: var(--roxo-primary); width: 100%; }
+        .btn-avancar:disabled { background: #ccc; cursor: not-allowed; }
+        .btn-adm { background: transparent; color: white; border: 1px solid white; margin-top: 15px; width: 100%; font-size: 0.8rem; }
+
+        /* MENU */
+        .menu-container { padding: 40px 20px; text-align: center; }
+        .grid-menu {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px; max-width: 800px; margin: 30px auto;
+        }
+        .menu-card {
+            padding: 40px; border-radius: 15px; color: white; font-weight: bold;
+            cursor: pointer; transition: transform 0.2s; font-size: 1.2rem;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .menu-card:hover { transform: scale(1.05); }
+
+        /* GALERIA & POLAROID */
+        .galeria-header { background: var(--roxo-primary); color: white; padding: 20px; position: sticky; top: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between; }
+        .grid-polaroid {
+            display: grid; grid-template-columns: repeat(2, 1fr);
+            gap: 15px; padding: 20px; justify-items: center;
+        }
+        @media (min-width: 768px) { .grid-polaroid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 30px; } }
+
+        .polaroid {
+            background: white; padding: 10px 10px 30px 10px;
+            width: 100%; max-width: 180px; min-width: 150px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center;
+        }
+        .polaroid .img-box {
+            width: 100%; height: 180px; background-color: #ddd;
+            overflow: hidden; margin-bottom: 10px;
+        }
+        .polaroid img { width: 100%; height: 100%; object-fit: cover; }
+        .polaroid p { font-size: 0.8rem; font-weight: 600; color: #222; margin-top: 5px; }
+        .polaroid span { font-size: 0.7rem; color: #666; display: block; line-height: 1.2; }
+
+        /* JOGO DA MEMÓRIA */
+        .game-area { max-width: 600px; margin: auto; padding: 20px; }
+        .instructions { background: var(--roxo-primary); color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; text-align: center; }
+        .grid-game {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+        }
+        .card-game {
+            aspect-ratio: 1/1; position: relative; transform-style: preserve-3d;
+            transition: transform 0.5s; cursor: pointer;
+        }
+        .card-game.flipped { transform: rotateY(180deg); }
+        .card-front, .card-back {
+            position: absolute; width: 100%; height: 100%;
+            backface-visibility: hidden; border-radius: 5px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .card-back { background: var(--amarelo); border: 3px solid var(--roxo-primary); }
+        .card-front { background: white; transform: rotateY(180deg); padding: 5px; }
+        .card-front img { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+        /* ADMIN */
+        .admin-section { padding: 30px; max-width: 1000px; margin: auto; }
+        .dash-card { background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #ddd; }
+        th { background: var(--roxo-primary); color: white; }
+
+        /* VINHETA */
+        .vignette { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; box-shadow: inset 0 0 150px var(--roxo-vinheta); z-index: 1; }
+    </style>
+</head>
+<body>
+
+<div id="vignette-layer" class="vignette hidden"></div>
+
+<section id="sec-inicial">
+    <div id="pg-inicial">
+        <div class="login-card">
+            <h1 style="font-family: 'Playfair Display'; margin-bottom: 20px;">Minutos Literários</h1>
+            <input type="text" id="aluno-nome" placeholder="Digite seu nome completo">
+            <button id="btn-avancar" class="btn btn-avancar" disabled onclick="cadastrarAcesso()">Avançar</button>
+            <button class="btn btn-adm" onclick="abrirLoginAdm()">Adm. UNEMAT</button>
+        </div>
+    </div>
+</section>
+
+<section id="sec-login-adm" class="hidden">
+    <div id="pg-inicial">
+        <div class="login-card">
+            <h2>Acesso Administrativo</h2>
+            <input type="email" id="adm-email" placeholder="E-mail">
+            <input type="password" id="adm-senha" placeholder="Senha">
+            <button class="btn btn-avancar" onclick="loginAdmin()">Entrar</button>
+            <button class="btn btn-adm" onclick="voltarInicio()">Voltar</button>
+        </div>
+    </div>
+</section>
+
+<section id="sec-admin" class="hidden">
+    <div class="galeria-header">
+        <h2>Dashboard Administrativo</h2>
+        <button class="btn" style="background:var(--amarelo)" onclick="voltarInicio()">Sair</button>
+    </div>
+    <div class="admin-section">
+        <div class="dash-card">
+            <h3>Alunos Cadastrados</h3>
+            <table id="tabela-alunos">
+                <thead>
+                    <tr>
+                        <th>Nome Completo</th>
+                        <th>Acessos</th>
+                        <th>Último Acesso</th>
+                    </tr>
+                </thead>
+                <tbody id="lista-alunos-corpo"></tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<section id="sec-menu" class="hidden">
+    <div class="menu-container">
+        <h1 style="font-family: 'Playfair Display'; color: var(--roxo-primary);">Menu Literário</h1>
+        <div class="grid-menu">
+            <div class="menu-card" style="background: var(--amarelo); color: var(--roxo-primary);" onclick="abrirTela('galeria-sugestoes')">Sugestões</div>
+            <div class="menu-card" style="background: var(--verde-agua);" onclick="abrirTela('galeria-curiosidades')">Curiosidades</div>
+            <div class="menu-card" style="background: var(--roxo-primary);" onclick="abrirTela('galeria-literaria')">Galeria Literária</div>
+            <div class="menu-card" style="background: var(--vermelho);" onclick="abrirJogo()">Jogo da Memória</div>
+        </div>
+        <button class="btn" style="background: #666; color: white;" onclick="voltarInicio()">Sair</button>
+    </div>
+</section>
+
+<section id="sec-conteudo" class="hidden">
+    <div class="galeria-header">
+        <h2 id="titulo-tela">Galeria</h2>
+        <button class="btn" style="background:var(--amarelo)" onclick="voltarMenu()">Voltar</button>
+    </div>
+    <div id="container-polaroids" class="grid-polaroid">
+        </div>
+</section>
+
+<section id="sec-jogo" class="hidden">
+    <div class="galeria-header">
+        <h2>Jogo da Memória</h2>
+        <button class="btn" style="background:var(--amarelo)" onclick="voltarMenu()">Sair</button>
+    </div>
+    <div class="game-area">
+        <div id="game-info" class="instructions">Prepare-se!</div>
+        <div id="grid-game" class="grid-game">
+            </div>
+    </div>
+</section>
+
+<script>
+    // 1. CONFIGURAÇÃO FIREBASE
+    const firebaseConfig = {
+        apiKey: "AIzaSyA8Yu-F1Y2wQe0RQ5daCC6k-EEwxFTuveE",
+        authDomain: "letras---minutos-literarios.firebaseapp.com",
+        projectId: "letras---minutos-literarios",
+        storageBucket: "letras---minutos-literarios.firebasestorage.app",
+        messagingSenderId: "407952741944",
+        appId: "1:407952741944:web:f1a862372a0e360db878cd",
+        measurementId: "G-PC90DYG3KV"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // 2. DADOS FIXOS
+    const galeriaLiteraria = [
+        {img: '1.png', nome: 'Luis Fernando Verissimo', desc: 'Escritor e humorista brasileiro'},
+        {img: '2.png', nome: 'Pedro Casaldáliga', desc: 'Bispo espanhol'},
+        {img: '3.png', nome: 'Bertolt Brecht', desc: 'Dramaturgo e poeta'},
+        {img: '4.png', nome: 'Clarice Lispector', desc: 'Escritora e jornalista brasileira'},
+        {img: '5.png', nome: 'Lygia Fagundes Telles', desc: 'Escritora brasileira'},
+        {img: '6.png', nome: 'Machado de Assis', desc: 'Escritor brasileiro'},
+        {img: '7.png', nome: 'Carolina Maria de Jesus', desc: 'Escritora brasileira'},
+        {img: '8.png', nome: 'José Mauro de Vasconcelos', desc: 'Escritor brasileiro'},
+        {img: '9.png', nome: 'Albert Camus', desc: 'Escritor e filósofo'},
+        {img: '10.png', nome: 'Graciliano Ramos', desc: 'Romancista brasileiro'},
+        {img: '11.png', nome: 'Eça de Queiroz', desc: 'Escritor e diplomata português'},
+        {img: '12.png', nome: 'Cecília Meireles', desc: 'Jornalista brasileira'},
+        {img: '13.png', nome: 'Rachel de Queiroz', desc: 'Escritora e jornalista brasileira'},
+        {img: '14.png', nome: 'Cora Coralina', desc: 'Poetisa brasileira'}
+    ];
+
+    const sugestoes = [
+        {img: 'lixo.png', nome: 'O lixo', desc: 'Luis Fernando Verissimo'},
+        {img: 'tuba.png', nome: 'Se os Tubarões fossem Homens', desc: 'Bertold Brecht'},
+        {img: 'versos.png', nome: 'Verso Adverso', desc: 'Pedro Casaldáliga'},
+        {img: 'meu.png', nome: 'Meu Pé de Laranja Lima', desc: 'José Mauro de Vasconcelos'},
+        {img: 'feliz.png', nome: 'Feliz ano novo', desc: 'Rubem Fonseca'},
+        {img: 'estrangeiro.png', nome: 'O Estrangeiro', desc: 'Albert Camus'},
+        {img: 'ovo.png', nome: 'O Ovo e a Galinha', desc: 'Clarice Lispector'},
+        {img: 'vidas.png', nome: 'Vidas Secas', desc: 'Graciliano Ramos'},
+        {img: 'bernardo.png', nome: 'S. Bernardo', desc: 'Graciliano Ramos'},
+        {img: 'memorias.png', nome: 'Memórias do Subsolo', desc: 'Fiódor Dostoiévski'},
+        {img: 'insonia.png', nome: 'Insônia', desc: 'Graciliano Ramos'},
+        {img: 'postumas.png', nome: 'Memórias Póstumas de Brás Cubas', desc: 'Machado de Assis'},
+        {img: 'ah.png', nome: 'Ah, é?', desc: 'Dalton Trevisan'},
+        {img: 'hamlet.png', nome: 'Hamlet', desc: 'William Shakespeare'},
+        {img: 'triste.png', nome: 'Triste Fim de Policarpo Quaresma', desc: 'Lima Barreto'},
+        {img: 'chapeu.png', nome: 'Chapeuzinho Amarelo', desc: 'Chico Buarque'},
+        {img: 'fazenda.png', nome: 'Fazenda Modelo', desc: 'Chico Buarque'},
+        {img: 'crime.png', nome: 'O Crime do Padre Amaro', desc: 'Eça de Queiroz'},
+        {img: 'ocupacao.png', nome: 'A ocupação', desc: 'Julián Fuks'},
+        {img: 'ceu.png', nome: 'O Céu dos Suicidas', desc: 'Ricardo Lísias'},
+        {img: 'eles.png', nome: 'Eles Eram Muitos Cavalos', desc: 'Luiz Ruffato'},
+        {img: 'luna.png', nome: 'Luna Clara & Apolo Onze', desc: 'Adriana Falcão'},
+        {img: 'barata.png', nome: 'A Metamorfose', desc: 'Luis Fernando Veríssimo'},
+        {img: 'quarto.png', nome: 'Quarto de Despejo', desc: 'Carolina Maria de Jesus'}
+    ];
+
+    const curiosidades = [
+        {texto: "“O Pequeno Príncipe” é o livro mais traduzido em outros países. 382 idiomas."},
+        {texto: "Graciliano Ramos tinha 16 irmãos e escrevia à mão mesmo sendo ateu, admirava a Bíblia."},
+        {texto: "Mauricio de Sousa foi o primeiro quadrinista na Academia de Letras."},
+        {texto: "Shakespeare escreveu 39 peças e 154 sonetos. Obra: Macbeth."},
+        {texto: "Charles Dickens retratava a vida das classes desfavorecidas. Obra: Um Cântico de Natal."},
+        {texto: "Jane Austen é precursora da ficção moderna. Obra: Orgulho e Preconceito."},
+        {texto: "Cervantes inovou com linguagem cotidiana. Obra: Don Quixote."},
+        {texto: "Mark Twain abordou racismo e desigualdade. Obra: Huckleberry Finn."},
+        {texto: "Edgar Allan Poe foi pioneiro nas histórias de detetive modernas."},
+        {texto: "Machado de Assis era autodidata e fundou o Realismo no Brasil."},
+        {texto: "Virginia Woolf inovou com o fluxo de consciência. Obra: Mrs. Dalloway."},
+        {texto: "Dostoiévski explorou o existencialismo. Obra: Crime e Castigo."}
+    ];
+
+    // 3. LÓGICA DE NAVEGAÇÃO E LOGIN
+    const inputNome = document.getElementById('aluno-nome');
+    const btnAvancar = document.getElementById('btn-avancar');
+
+    inputNome.addEventListener('input', () => {
+        const nomes = inputNome.value.trim().split(' ');
+        btnAvancar.disabled = nomes.length < 2;
+    });
+
+    function voltarInicio() {
+        document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
+        document.getElementById('sec-inicial').classList.remove('hidden');
+        document.getElementById('vignette-layer').classList.add('hidden');
+    }
+
+    function abrirLoginAdm() {
+        document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
+        document.getElementById('sec-login-adm').classList.remove('hidden');
+    }
+
+    function loginAdmin() {
+        const email = document.getElementById('adm-email').value;
+        const senha = document.getElementById('adm-senha').value;
+        const credenciais = [
+            {u: 'gabriel.freitas@unemat.br', p: 'Minutos2026@'},
+            {u: 'fernanda.fiuza@unemat.br', p: 'Minutos2026@'}
+        ];
+
+        const loginSucesso = credenciais.some(c => c.u === email && c.p === senha);
+
+        if(loginSucesso) {
+            document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
+            document.getElementById('sec-admin').classList.remove('hidden');
+            carregarAlunos();
+        } else {
+            alert("Credenciais incorretas!");
+        }
+    }
+
+    // 4. PERSISTÊNCIA (FIREBASE + LOCALSTORAGE)
+    async function cadastrarAcesso() {
+        const nome = inputNome.value.trim();
+        
+        // LocalStorage (Simulando)
+        let alunosLocal = JSON.parse(localStorage.getItem('alunos')) || {};
+        if(alunosLocal[nome]) {
+            alunosLocal[nome].acessos += 1;
+            alunosLocal[nome].ultimo = new Date().toLocaleString();
+        } else {
+            alunosLocal[nome] = { acessos: 1, ultimo: new Date().toLocaleString() };
+        }
+        localStorage.setItem('alunos', JSON.stringify(alunosLocal));
+
+        // Firebase
+        try {
+            const alunoRef = db.collection("alunos").doc(nome.replace(/\s+/g, '_'));
+            const doc = await alunoRef.get();
+            if(doc.exists) {
+                await alunoRef.update({ acessos: firebase.firestore.FieldValue.increment(1), ultimo: new Date() });
+            } else {
+                await alunoRef.set({ nome: nome, acessos: 1, ultimo: new Date() });
+            }
+        } catch(e) { console.log("Firebase off, using local only"); }
+
+        document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
+        document.getElementById('sec-menu').classList.remove('hidden');
+        document.getElementById('vignette-layer').classList.remove('hidden');
+    }
+
+    function carregarAlunos() {
+        const corpoTabela = document.getElementById('lista-alunos-corpo');
+        corpoTabela.innerHTML = "";
+        const alunos = JSON.parse(localStorage.getItem('alunos')) || {};
+
+        for (let nome in alunos) {
+            const row = `<tr>
+                <td>${nome}</td>
+                <td>${alunos[nome].acessos}</td>
+                <td>${alunos[nome].ultimo}</td>
+            </tr>`;
+            corpoTabela.innerHTML += row;
+        }
+    }
+
+    // 5. TELAS DE CONTEÚDO
+    function abrirTela(tipo) {
+        document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
+        document.getElementById('sec-conteudo').classList.remove('hidden');
+        const container = document.getElementById('container-polaroids');
+        const titulo = document.getElementById('titulo-tela');
+        container.innerHTML = "";
+
+        if(tipo === 'galeria-literaria') {
+            titulo.innerText = "Galeria Literária";
+            galeriaLiteraria.forEach(item => {
+                container.innerHTML += `
+                <div class="polaroid">
+                    <div class="img-box"><img src="${item.img}" alt="${item.nome}"></div>
+                    <p>${item.nome}</p>
+                    <span>${item.desc}</span>
+                </div>`;
+            });
+        } else if (tipo === 'galeria-sugestoes') {
+            titulo.innerText = "Sugestões de Leitura";
+            sugestoes.forEach(item => {
+                container.innerHTML += `
+                <div class="polaroid">
+                    <div class="img-box"><img src="${item.img}" alt="${item.nome}"></div>
+                    <p>${item.nome}</p>
+                    <span>${item.desc}</span>
+                </div>`;
+            });
+        } else if (tipo === 'galeria-curiosidades') {
+            titulo.innerText = "Curiosidades Literárias";
+            curiosidades.forEach(item => {
+                container.innerHTML += `
+                <div class="polaroid" style="max-width: 300px; height: auto;">
+                    <p style="font-weight: normal; font-size: 0.85rem;">${item.texto}</p>
+                </div>`;
+            });
+        }
+    }
+
+    function voltarMenu() {
+        document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
+        document.getElementById('sec-menu').classList.remove('hidden');
+    }
+
+    // 6. JOGO DA MEMÓRIA
+    let cartasViradas = [];
+    let paresEncontrados = 0;
+    const paresFinais = [
+        {a: '1.png', b: 'lixo.png'}, {a: '2.png', b: 'principe.png'},
+        {a: '3.png', b: 'tuba.png'}, {a: '6.png', b: 'cuba.png'},
+        {a: '4.png', b: 'sopro.png'}, {a: '5.png', b: 'porao.png'},
+        {a: '7.png', b: 'quarto.png'}, {a: '8.png', b: 'meu.png'}
+    ];
+
+    function abrirJogo() {
+        document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
+        document.getElementById('sec-jogo').classList.remove('hidden');
+        const grid = document.getElementById('grid-game');
+        const info = document.getElementById('game-info');
+        grid.innerHTML = "";
+        cartasViradas = [];
+        paresEncontrados = 0;
+
+        // Criar Deck
+        let deck = [];
+        paresFinais.forEach(par => {
+            deck.push({img: par.a, parId: par.a});
+            deck.push({img: par.b, parId: par.a});
+        });
+        deck = deck.sort(() => Math.random() - 0.5);
+
+        deck.forEach((c, idx) => {
+            grid.innerHTML += `
+                <div class="card-game flipped" data-id="${c.parId}" id="card-${idx}" onclick="virarCarta(this)">
+                    <div class="card-back"></div>
+                    <div class="card-front"><img src="${c.img}"></div>
+                </div>`;
+        });
+
+        info.innerText = "Objetivo: Autor + Obra";
+        
+        // Lógica de Tempo
+        setTimeout(() => {
+            info.innerText = "Memorize as posições!";
+            setTimeout(() => {
+                document.querySelectorAll('.card-game').forEach(c => c.classList.remove('flipped'));
+                info.innerText = "Começou! Encontre os pares.";
+            }, 5000);
+        }, 3000);
+    }
+
+    function virarCarta(el) {
+        if(el.classList.contains('flipped') || cartasViradas.length === 2) return;
+
+        el.classList.add('flipped');
+        cartasViradas.push(el);
+
+        if(cartasViradas.length === 2) {
+            const [c1, c2] = cartasViradas;
+            if(c1.dataset.id === c2.dataset.id) {
+                paresEncontrados++;
+                cartasViradas = [];
+                if(paresEncontrados === paresFinais.length) {
+                    vitoria();
+                }
+            } else {
+                setTimeout(() => {
+                    c1.classList.remove('flipped');
+                    c2.classList.remove('flipped');
+                    cartasViradas = [];
+                }, 1000);
+            }
+        }
+    }
+
+    function vitoria() {
+        confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+        const grid = document.getElementById('grid-game');
+        grid.innerHTML = `<div style="grid-column: 1 / span 4; text-align:center; padding:40px;">
+            <h2 style="color:var(--roxo-primary); margin-bottom:20px;">Parabéns!</h2>
+            <p>"A força não vem de vencer. Suas lutas desenvolvem suas forças." — Arnold Schwarzenegger (Adaptado)</p>
+            <button class="btn btn-avancar" style="margin-top:20px;" onclick="voltarMenu()">Voltar ao Menu</button>
+        </div>`;
+    }
+
+</script>
+
+</body>
+</html>
